@@ -2,9 +2,9 @@
   "name": "goldcomfort-backend",
   "version": "2.0.0",
   "description": "GoldComfort real backend — PostgreSQL version. Requires `npm install` (pg) and a running PostgreSQL server.",
-  "main": "server-postgres.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node server-postgres.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "pg": "^8.13.0"
