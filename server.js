@@ -1,6 +1,6 @@
 // server.js — the real GoldComfort backend.
 // PostgreSQL version — requires `npm install pg` and a running PostgreSQL
-// server (see db-postgres.js for full setup notes). Everything else about
+// server (see db.js for full setup notes). Everything else about
 // this file is unchanged from the SQLite version.
 
 const http = require('node:http');
