@@ -1,0 +1,17 @@
+# Never commit real secrets
+.env
+
+# npm dependencies — this version has a real one (pg), unlike the original
+# zero-dependency SQLite version. Never commit this folder; Render runs
+# `npm install` itself during Build, using package.json/package-lock.json.
+node_modules/
+npm-debug.log
+
+# The old SQLite database file — irrelevant to this Postgres version, but
+# harmless to ignore in case it's ever created locally during testing.
+goldcomfort.db
+goldcomfort.db-shm
+goldcomfort.db-wal
+
+# OS
+.DS_Store
