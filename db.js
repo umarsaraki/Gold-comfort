@@ -1,4 +1,4 @@
-// db-postgres.js — PostgreSQL version of the database layer, using `pg`.
+// db.js — PostgreSQL version of the database layer, using `pg`.
 //
 // ⚠️ NOT YET TESTED against a real PostgreSQL server (no network access in
 // this sandbox to `npm install pg` or run a real Postgres instance). Written
