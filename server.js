@@ -8,7 +8,7 @@ const https = require('node:https');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const db = require('./db-postgres');
+const db = require('./db');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'owner@example.com';
