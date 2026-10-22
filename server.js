@@ -799,14 +799,14 @@ async function checkExpiredOrders() {
     SELECT * FROM orders
     WHERE status IN ('preparing','on-way','arrived')
       AND expected_delivery_at IS NOT NULL
-      AND expected_delivery_at < NOW()
+      AND expected_delivery_at::timestamptz < NOW()
   `).all();
   for (const order of overdue) {
     await db.prepare("UPDATE orders SET status = 'expired' WHERE id = ?").run(order.id);
     creditWallet('customer', order.buyer_email, order.total, `Refund — order #${order.id} expired (not delivered in time)`, order.id);
     console.log(`[auto-expiry] Order #${order.id} expired — refunded ₦${order.total} to ${order.buyer_email}`);
   }
-}
+    }
 setInterval(()=>{ checkExpiredOrders(); checkExpiredCredits(); }, 60 * 1000);
 
 // -- Order chat --
