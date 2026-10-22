@@ -39,7 +39,10 @@ const pool = new Pool({
   user: process.env.PG_USER,
   password: process.env.PG_PASSWORD,
   database: process.env.PG_DATABASE,
-  max: 10
+  max: 10,
+  ssl: { // 🟢 ADDED FOR RENDER
+    rejectUnauthorized: false 
+  }
 });
 
 // Converts '?' placeholders (SQLite/MySQL style, used throughout server.js)
@@ -94,14 +97,14 @@ const schema = `
     security_code_hash TEXT,
     security_code_salt TEXT,
     security_code_attempts INTEGER NOT NULL DEFAULT 0,
-    security_code_locked_until TEXT,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    security_code_locked_until TIMESTAMPTZ, // 🔴 TEXT > 🟢 TIMESTAMPTZ
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 TEXT DEFAULT (NOW()) > 🟢 TIMESTAMPTZ DEFAULT NOW()
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     user_email TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS verified_identities (
@@ -111,7 +114,7 @@ const schema = `
     nin TEXT NOT NULL,
     selfie_photo TEXT,
     dob TEXT NOT NULL,
-    verified_at TEXT NOT NULL DEFAULT (NOW())
+    verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS resellers (
@@ -125,13 +128,13 @@ const schema = `
     bank_acct TEXT,
     bank_acct_name TEXT,
     plan TEXT NOT NULL DEFAULT 'Pro (₦6,000/mo)',
-    plan_expires_at TEXT NOT NULL,
+    plan_expires_at TIMESTAMPTZ NOT NULL, // 🔴 > 🟢
     interest_while_expired SMALLINT NOT NULL DEFAULT 0,
     banned SMALLINT NOT NULL DEFAULT 0,
     source TEXT NOT NULL DEFAULT 'self',
     available_balance INTEGER NOT NULL DEFAULT 0,
     total_earning INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS listings (
@@ -146,7 +149,7 @@ const schema = `
     rating DECIMAL(3,2) NOT NULL DEFAULT 0,
     discount_code TEXT,
     discount_percent INTEGER,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS orders (
@@ -169,9 +172,9 @@ const schema = `
     cust_email TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     decline_reason TEXT,
-    expected_delivery_at TEXT,
-    ordered_at TEXT NOT NULL DEFAULT (NOW()),
-    delivered_at TEXT
+    expected_delivery_at TIMESTAMPTZ, // 🔴 > 🟢
+    ordered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
+    delivered_at TIMESTAMPTZ // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS wallet_transactions (
@@ -183,7 +186,7 @@ const schema = `
     balance_after INTEGER NOT NULL,
     reason TEXT NOT NULL,
     related_order_id INTEGER,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS virtual_accounts (
@@ -194,7 +197,7 @@ const schema = `
     account_name TEXT,
     bank_name TEXT NOT NULL,
     flw_reference TEXT,
-    created_at TEXT NOT NULL DEFAULT (NOW()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
     UNIQUE(owner_type, owner_id)
   );
 
@@ -205,7 +208,7 @@ const schema = `
     bank_name TEXT NOT NULL,
     bank_acct TEXT NOT NULL,
     bank_acct_name TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS order_chat (
@@ -213,7 +216,7 @@ const schema = `
     order_id INTEGER NOT NULL REFERENCES orders(id),
     from_role TEXT NOT NULL,
     text TEXT NOT NULL,
-    at TEXT NOT NULL DEFAULT (NOW())
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS buy_requests (
@@ -221,7 +224,7 @@ const schema = `
     reseller_id INTEGER NOT NULL REFERENCES resellers(id),
     item_name TEXT NOT NULL,
     description TEXT,
-    created_at TEXT NOT NULL DEFAULT (NOW()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
     closed SMALLINT NOT NULL DEFAULT 0
   );
 
@@ -230,7 +233,7 @@ const schema = `
     buy_request_id INTEGER NOT NULL REFERENCES buy_requests(id),
     from_email TEXT NOT NULL,
     text TEXT NOT NULL,
-    at TEXT NOT NULL DEFAULT (NOW())
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS reports (
@@ -239,7 +242,7 @@ const schema = `
     reported_email TEXT NOT NULL,
     reason TEXT NOT NULL,
     context TEXT,
-    created_at TEXT NOT NULL DEFAULT (NOW()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
     resolved SMALLINT NOT NULL DEFAULT 0
   );
 
@@ -252,9 +255,9 @@ const schema = `
     discount_percent INTEGER,
     audience TEXT NOT NULL DEFAULT 'all',
     target_email TEXT,
-    expires_at TEXT,
+    expires_at TIMESTAMPTZ, // 🔴 > 🟢
     active SMALLINT NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS banner_slides (
@@ -265,7 +268,7 @@ const schema = `
     views INTEGER NOT NULL DEFAULT 0,
     clicks INTEGER NOT NULL DEFAULT 0,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (NOW())
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS customer_credits (
@@ -274,8 +277,8 @@ const schema = `
     amount INTEGER NOT NULL,
     granted_by_reseller_id INTEGER REFERENCES resellers(id),
     reason TEXT,
-    created_at TEXT NOT NULL DEFAULT (NOW()),
-    expires_at TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
+    expires_at TIMESTAMPTZ, // 🔴 > 🟢
     used SMALLINT NOT NULL DEFAULT 0,
     used_order_id INTEGER
   );
@@ -284,7 +287,7 @@ const schema = `
     id SERIAL PRIMARY KEY,
     message TEXT NOT NULL,
     audience TEXT NOT NULL,
-    sent_at TEXT NOT NULL DEFAULT (NOW())
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS notification_reads (
@@ -298,7 +301,7 @@ const schema = `
     user_email TEXT NOT NULL REFERENCES users(email),
     from_role TEXT NOT NULL,
     text TEXT NOT NULL,
-    at TEXT NOT NULL DEFAULT (NOW())
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW() // 🔴 > 🟢
   );
 
   CREATE TABLE IF NOT EXISTS support_threads (
@@ -318,14 +321,14 @@ const schema = `
     listing_id INTEGER NOT NULL REFERENCES listings(id),
     customer_email TEXT NOT NULL,
     stars INTEGER NOT NULL,
-    at TEXT NOT NULL DEFAULT (NOW()),
+    at TIMESTAMPTZ NOT NULL DEFAULT NOW(), // 🔴 > 🟢
     UNIQUE(listing_id, customer_email)
   );
 
   CREATE TABLE IF NOT EXISTS otp_codes (
     phone TEXT PRIMARY KEY,
     code TEXT NOT NULL,
-    expires_at TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL, // 🔴 > 🟢
     verified SMALLINT NOT NULL DEFAULT 0
   );
 `;
