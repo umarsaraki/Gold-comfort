@@ -1,7 +1,6 @@
-// server.js — the real GoldComfort backend.
-// PostgreSQL version — requires `npm install pg` and a running PostgreSQL
-// server (see db.js for full setup notes). Everything else about
-// this file is unchanged from the SQLite version.
+// server.js — the real GoldComfort backend, running on PostgreSQL.
+// Requires `npm install` (installs `pg`) and a running PostgreSQL server —
+// see db.js for full setup notes and required environment variables.
 
 const http = require('node:http');
 const https = require('node:https');
@@ -788,7 +787,7 @@ route('POST', '/api/orders/:id/confirm', async (req, res, body, params) => {
 // Auto-void any cashback/credit that was never used before its expiry —
 // runs alongside the order-expiry check, same cadence.
 async function checkExpiredCredits() {
-  await db.prepare(`UPDATE customer_credits SET used = 1 WHERE used = 0 AND expires_at IS NOT NULL AND expires_at::timestamptz < NOW()`).run();
+  await db.prepare(`UPDATE customer_credits SET used = 1 WHERE used = 0 AND expires_at IS NOT NULL AND expires_at < NOW()`).run();
 }
 
 // Auto-expiry: any order past the delivery deadline the reseller themselves
@@ -799,14 +798,14 @@ async function checkExpiredOrders() {
     SELECT * FROM orders
     WHERE status IN ('preparing','on-way','arrived')
       AND expected_delivery_at IS NOT NULL
-      AND expected_delivery_at::timestamptz < NOW()
+      AND expected_delivery_at < NOW()
   `).all();
   for (const order of overdue) {
     await db.prepare("UPDATE orders SET status = 'expired' WHERE id = ?").run(order.id);
     creditWallet('customer', order.buyer_email, order.total, `Refund — order #${order.id} expired (not delivered in time)`, order.id);
     console.log(`[auto-expiry] Order #${order.id} expired — refunded ₦${order.total} to ${order.buyer_email}`);
   }
-    }
+}
 setInterval(()=>{ checkExpiredOrders(); checkExpiredCredits(); }, 60 * 1000);
 
 // -- Order chat --
@@ -1454,10 +1453,9 @@ const server = http.createServer(async (req, res) => {
   sendJSON(res, 404, { error: 'no such route' });
 });
 
-// Connecting to Postgres happens over the network, unlike SQLite's instant
-// local file open — so schema setup must finish and be awaited BEFORE the
-// server starts accepting any requests, or an early request could hit
-// routes before tables exist.
+// Connecting to Postgres happens over the network — so schema setup must
+// finish and be awaited BEFORE the server starts accepting any requests, or
+// an early request could hit routes before tables exist.
 (async () => {
   await db.initDb();
   server.listen(PORT, () => {
