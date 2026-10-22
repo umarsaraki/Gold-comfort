@@ -788,7 +788,7 @@ route('POST', '/api/orders/:id/confirm', async (req, res, body, params) => {
 // Auto-void any cashback/credit that was never used before its expiry —
 // runs alongside the order-expiry check, same cadence.
 async function checkExpiredCredits() {
-  await db.prepare(`UPDATE customer_credits SET used = 1 WHERE used = 0 AND expires_at IS NOT NULL AND expires_at < NOW()`).run();
+  await db.prepare(`UPDATE customer_credits SET used = 1 WHERE used = 0 AND expires_at IS NOT NULL AND expires_at::timestamptz < NOW()`).run();
 }
 
 // Auto-expiry: any order past the delivery deadline the reseller themselves
