@@ -1,31 +1,20 @@
-// db.js — PostgreSQL version of the database layer, using `pg`.
+// db.js — PostgreSQL database layer for GoldComfort, using `pg`.
 //
 // ⚠️ NOT YET TESTED against a real PostgreSQL server (no network access in
-// this sandbox to `npm install pg` or run a real Postgres instance). Written
-// carefully, reviewed for correctness, but real testing is still required —
-// same caveat as db-mysql.js/server-mysql.js before this.
+// this development sandbox to install `pg` or run a real Postgres instance).
+// Written carefully and reviewed, but real testing against an actual
+// database is still required before this is trusted with real data.
 //
-// WHY POSTGRES NEEDED FEWER CHANGES THAN MYSQL:
-//  - Postgres supports `ON CONFLICT (...) DO UPDATE SET x = EXCLUDED.x` —
-//    almost identical wording to SQLite's own `ON CONFLICT DO UPDATE SET
-//    x = excluded.x`, since SQLite borrowed this syntax FROM Postgres
-//    originally. MySQL's equivalent (`ON DUPLICATE KEY UPDATE`) reads
-//    completely differently — Postgres needed no rewriting here.
-//  - Postgres allows TEXT columns to be a PRIMARY KEY directly, no bounded
-//    VARCHAR(n) length required like MySQL — schema stays closer to SQLite's
-//    original TEXT columns.
-//
-// WHAT'S DIFFERENT AND HANDLED BELOW:
-//  - Placeholders: SQLite/MySQL use `?`; Postgres uses numbered `$1, $2, ...`.
-//    Rather than rewrite every query string in server.js, prepare() below
-//    converts `?` to `$1,$2,...` automatically, so server.js's query strings
-//    can stay exactly as written (same as the MySQL version).
-//  - Auto-increment ID retrieval: MySQL returns `insertId` automatically;
-//    Postgres does not — every INSERT that needs the new row's id must add
-//    `RETURNING id` to its SQL, and run() reads it from the returned row.
-//  - AUTO_INCREMENT -> "id SERIAL PRIMARY KEY" (or GENERATED ALWAYS AS
-//    IDENTITY, used here since it's the modern recommended form).
-//  - Quoted identifiers use double quotes ("key"), not backticks (`key`).
+// HOW QUERIES WORK:
+//  - Every query string in server.js uses `?` placeholders for values.
+//    prepare() below converts each `?` to Postgres's numbered `$1, $2, ...`
+//    style automatically, so server.js's query strings never need `$1`-style
+//    placeholders written by hand.
+//  - Getting a newly-inserted row's id back requires the SQL itself to say
+//    `RETURNING id` — server.js's INSERT statements that need the new row's
+//    id already include this.
+//  - Table identifiers that need quoting (like the `settings` table's `key`
+//    column, a reserved word) use double quotes: "key".
 //
 // REQUIRES: npm install pg
 // REQUIRES: a running PostgreSQL server, and these env vars in .env:
@@ -33,16 +22,30 @@
 
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: process.env.PG_PORT || 5432,
-  user: process.env.PG_USER,
-  password: process.env.PG_PASSWORD,
-  database: process.env.PG_DATABASE,
-  max: 10
-});
+// Render's managed PostgreSQL (and most cloud Postgres providers) require an
+// SSL connection — without this, connecting from a Render Web Service to a
+// Render PostgreSQL database fails outright. `rejectUnauthorized: false` is
+// what Render's own docs recommend, since their internal certificate chain
+// isn't set up for full verification from a client app.
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        max: 10,
+        ssl: { rejectUnauthorized: false }
+      }
+    : {
+        host: process.env.PG_HOST || 'localhost',
+        port: process.env.PG_PORT || 5432,
+        user: process.env.PG_USER,
+        password: process.env.PG_PASSWORD,
+        database: process.env.PG_DATABASE,
+        max: 10,
+        ssl: process.env.PG_SSL === 'false' ? false : { rejectUnauthorized: false }
+      }
+);
 
-// Converts '?' placeholders (SQLite/MySQL style, used throughout server.js)
+// Converts '?' placeholders (used throughout server.js's query strings)
 // into Postgres's numbered '$1, $2, ...' style. A '?' inside a quoted SQL
 // string literal would break this, but none of this app's queries embed a
 // literal '?' character inside a string — all real values are passed as
@@ -65,9 +68,8 @@ function prepare(sql) {
     },
     async run(...params) {
       const result = await pool.query(pgSql, params);
-      // Only meaningful when the SQL includes `RETURNING id` (added to every
-      // INSERT statement in server-postgres.js that needs the new row's id —
-      // Postgres has no automatic "last insert id" the way MySQL does).
+      // Only meaningful when the SQL includes `RETURNING id` (server.js adds
+      // this to every INSERT statement that needs the new row's id back).
       const lastInsertRowid = result.rows[0] ? result.rows[0].id : undefined;
       return { lastInsertRowid, changes: result.rowCount };
     }
@@ -76,8 +78,7 @@ function prepare(sql) {
 
 async function exec(sql) {
   // Schema setup — a plain multi-statement query works fine with pg's
-  // simple query protocol, no special multi-statement flag needed (unlike
-  // mysql2, which required a dedicated connection for this).
+  // simple query protocol, no special configuration needed for this.
   await pool.query(sql);
 }
 
